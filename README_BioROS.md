@@ -179,3 +179,120 @@ Luego se visualizará en **Foxglove Studio (web)** a través del puerto `8765` u
 Autor: EVER  
 Fecha: 10-Nov-2025  
 Versión: 1.0
+
+
+
+
+
+## 🧭 8. Uso diario — Inicio rápido
+
+### 🔹 1️⃣ Preparar conexión del Arduino
+
+En **PowerShell (Administrador)**:
+```powershell
+usbipd list
+usbipd bind --busid 2-3
+usbipd wsl attach --busid 2-3 --distribution docker-desktop
+```
+> ⚠️ Asegúrate de que el **Arduino IDE esté cerrado** antes de adjuntar el dispositivo.
+
+---
+
+### 🔹 2️⃣ Iniciar contenedor ROS 2
+
+Si el contenedor existe:
+```powershell
+docker start -ai ros2bio
+```
+
+Si necesitas recrearlo (por ejemplo, tras reiniciar o actualizar imagen):
+```powershell
+docker rm -f ros2bio
+docker run -it --name ros2bio `
+  --hostname ros2bio `
+  --network rosnet `
+  --device=/dev/ttyACM0 `
+  -v "$PWD\ws:/root/ws" `
+  -p 8765:8765 `
+  -e TZ=America/Lima `
+  ever/ros2bio:latest bash
+```
+
+---
+
+### 🔹 3️⃣ Dentro del contenedor (`root@ros2bio:/#`)
+
+Ir al workspace y cargar entorno ROS 2:
+```bash
+cd /root/ws
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+```
+
+---
+
+### 🔹 4️⃣ Compilar (si hiciste cambios en el código)
+
+```bash
+colcon build --symlink-install
+source install/setup.bash
+```
+
+---
+
+### 🔹 5️⃣ Lanzar el nodo y Foxglove bridge
+
+```bash
+ros2 launch ecg_reader ecg.launch.py
+```
+
+Esto iniciará:
+- `serial_ecg_node` leyendo datos del Arduino.
+- `foxglove_bridge` sirviendo WebSocket en `ws://localhost:8765`.
+
+---
+
+### 🔹 6️⃣ Abrir nueva terminal en el contenedor
+
+En otra pestaña (PowerShell):
+```powershell
+docker exec -it ros2bio bash
+```
+
+Dentro:
+```bash
+source /opt/ros/humble/setup.bash
+source /root/ws/install/setup.bash
+```
+
+---
+
+### 🔹 7️⃣ Verificar los datos del tópico
+
+Dentro del contenedor:
+```bash
+ros2 topic list
+ros2 topic echo /ecg_raw
+```
+Deberías ver valores numéricos (0–1023 aprox.) transmitidos desde el Arduino.
+
+---
+
+### 🔹 8️⃣ Visualizar en Foxglove Studio
+
+1. Abre **Foxglove Studio** (app o web: [https://studio.foxglove.dev](https://studio.foxglove.dev))  
+2. Clic en **Connections → ROS Bridge → URL:**  
+   ```
+   ws://localhost:8765
+   ```
+3. Agrega un **Plot** con el tópico `/ecg_raw`.
+
+---
+
+### 🔹 9️⃣ Apagar todo
+
+Dentro del contenedor, presiona `Ctrl + C` para detener ROS 2.  
+Luego en Windows:
+```powershell
+docker stop ros2bio
+```
